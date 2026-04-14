@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>WiFi Billing Level 3</title>
+  <style>
+    body { font-family: Arial; background:#eef2f7; padding:20px; }
+    .container { max-width:700px; margin:auto; background:white; padding:20px; border-radius:10px; box-shadow:0 0 10px rgba(0,0,0,0.1);} 
+    input, button, select { width:100%; padding:10px; margin-top:10px; }
+    table { width:100%; margin-top:20px; border-collapse: collapse; }
+    th, td { border:1px solid #ddd; padding:8px; text-align:center; }
+    .lunas { color:green; font-weight:bold; }
+    .belum { color:red; font-weight:bold; }
+  </style>
+</head>
+<body>
+
+<div class="container" id="loginBox">
+  <h2>Login Admin</h2>
+  <input type="password" id="password" placeholder="Masukkan Password">
+  <button onclick="login()">Login</button>
+</div>
+
+<div class="container" id="app" style="display:none;">
+  <h2>WiFi Billing Level 3</h2>
+
+  <input type="text" id="nama" placeholder="Nama Pelanggan">
+  <input type="number" id="jumlah" placeholder="Jumlah Bayar">
+  <input type="text" id="wa" placeholder="No WhatsApp (628xxx)">
+
+  <select id="status">
+    <option value="Lunas">Lunas</option>
+    <option value="Belum">Belum</option>
+  </select>
+
+  <button onclick="kirimData()">Simpan</button>
+
+  <input type="text" id="cari" placeholder="Cari pelanggan" onkeyup="cariData()">
+
+  <button onclick="filterBelum()">Tampilkan Belum Bayar</button>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Nama</th>
+        <th>Jumlah</th>
+        <th>Status</th>
+        <th>WA</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody id="tabelData"></tbody>
+  </table>
+
+  <h3 id="total"></h3>
+</div>
+
+<script>
+const scriptURL = "https://script.google.com/macros/s/ISI_URL_KAMU/exec";
+let semuaData = [];
+
+function login(){
+  let pass = document.getElementById('password').value;
+  if(pass === "admin123"){
+    document.getElementById('loginBox').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadData();
+  } else {
+    alert('Password salah');
+  }
+}
+
+function kirimData(){
+  let data = {
+    nama: nama.value,
+    jumlah: jumlah.value,
+    status: status.value,
+    wa: wa.value,
+    tanggal: new Date().toLocaleString()
+  };
+
+  fetch(scriptURL, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }).then(() => loadData());
+}
+
+function loadData(){
+  fetch(scriptURL)
+    .then(res => res.json())
+    .then(data => {
+      semuaData = data;
+      tampilkan(data);
+    });
+}
+
+function tampilkan(data){
+  let html = '';
+  let total = 0;
+
+  data.forEach(d => {
+    total += Number(d.jumlah);
+
+    let pesan = `Halo ${d.nama}, tagihan WiFi Anda sebesar Rp ${d.jumlah}. Status: ${d.status}`;
+    let linkWA = `https://wa.me/${d.wa}?text=${encodeURIComponent(pesan)}`;
+
+    html += `<tr>
+      <td>${d.nama}</td>
+      <td>Rp ${d.jumlah}</td>
+      <td class="${d.status==='Lunas'?'lunas':'belum'}">${d.status}</td>
+      <td>${d.wa}</td>
+      <td><a href="${linkWA}" target="_blank">Kirim WA</a></td>
+    </tr>`;
+  });
+
+  tabelData.innerHTML = html;
+  totalText.innerText = 'Total: Rp ' + total;
+}
+
+function cariData(){
+  let keyword = cari.value.toLowerCase();
+  let hasil = semuaData.filter(d => d.nama.toLowerCase().includes(keyword));
+  tampilkan(hasil);
+}
+
+function filterBelum(){
+  let hasil = semuaData.filter(d => d.status === 'Belum');
+  tampilkan(hasil);
+}
+</script>
+
+<!-- ===== UPDATE GOOGLE SHEETS =====
+Kolom sekarang:
+Nama | Jumlah | Status | WA | Tanggal
+
+Update Apps Script:
+
+function doGet() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = sheet.getDataRange().getValues();
+  var hasil = [];
+
+  for (var i = 1; i < data.length; i++) {
+    hasil.push({
+      nama: data[i][0],
+      jumlah: data[i][1],
+      status: data[i][2],
+      wa: data[i][3],
+      tanggal: data[i][4]
+    });
+  }
+
+  return ContentService.createTextOutput(JSON.stringify(hasil))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = JSON.parse(e.postData.contents);
+
+  sheet.appendRow([data.nama, data.jumlah, data.status, data.wa, data.tanggal]);
+
+  return ContentService.createTextOutput("Sukses");
+}
+
+================================== -->
+
+</body>
+</html>
