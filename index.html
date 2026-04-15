@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>WiFi Manager Pro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4">
+
+<div class="max-w-4xl mx-auto">
+  <div class="bg-white p-6 rounded-2xl shadow-lg text-center">
+
+    <h1 class="text-2xl font-bold mb-6">📡 WiFi Manager</h1>
+
+    <!-- MENU SIMPLE -->
+    <div class="grid grid-cols-2 gap-3 mb-6">
+      <button onclick="showPage('home')" class="bg-blue-500 text-white p-4 rounded-xl">📋 Data Client</button>
+      <button onclick="showPage('input')" class="bg-green-500 text-white p-4 rounded-xl">➕ Input Data</button>
+      <button onclick="showPage('riwayat')" class="bg-gray-500 text-white p-4 rounded-xl">🕘 Riwayat</button>
+      <button onclick="showPage('laporan')" class="bg-purple-500 text-white p-4 rounded-xl">📊 Laporan</button>
+    </div>
+
+    <!-- BACK BUTTON -->
+    <button onclick="showPage('menu')" id="backBtn" class="hidden mb-4 bg-red-500 text-white px-3 py-2 rounded">⬅ Kembali</button>
+
+    <!-- SEARCH -->
+    <input id="search" onkeyup="render()" placeholder="🔍 Cari nama..." class="border p-2 w-full mb-3 rounded hidden">
+
+    <!-- INPUT PAGE -->
+    <div id="inputPage" class="hidden text-left">
+      <div class="bg-gray-50 p-4 rounded-xl mb-3">
+        <input id="nama" placeholder="Nama" class="border p-2 w-full mb-2 rounded">
+        <input id="alamat" placeholder="Alamat" class="border p-2 w-full mb-2 rounded">
+        <input id="paket" placeholder="Paket" class="border p-2 w-full mb-2 rounded">
+        <input id="harga" type="number" placeholder="Harga" class="border p-2 w-full mb-2 rounded">
+        <input id="wa" placeholder="No WA" class="border p-2 w-full mb-2 rounded">
+        <button onclick="tambah()" class="bg-green-500 text-white w-full py-2 rounded">Simpan</button>
+      </div>
+
+      <div class="bg-yellow-50 p-4 rounded-xl">
+        <textarea id="bulkInput" placeholder="Import: Nama,Alamat,Paket,Harga,WA" class="border p-2 w-full mb-2 rounded"></textarea>
+        <button onclick="importData()" class="bg-yellow-500 text-white w-full py-2 rounded mb-2">Import</button>
+        <input type="file" id="fileInput" class="mb-2">
+        <button onclick="uploadFile()" class="bg-indigo-500 text-white w-full py-2 rounded">Upload File</button>
+      </div>
+    </div>
+
+    <!-- HOME -->
+    <div id="homePage" class="hidden text-left">
+      <table class="w-full text-sm">
+        <thead><tr><th>Nama</th><th>Status</th><th>Aksi</th></tr></thead>
+        <tbody id="tabel"></tbody>
+      </table>
+    </div>
+
+    <!-- RIWAYAT -->
+    <div id="riwayatPage" class="hidden text-left">
+      <table class="w-full text-sm">
+        <thead><tr><th>Nama</th><th>Bulan</th><th>Status</th></tr></thead>
+        <tbody id="tabelRiwayat"></tbody>
+      </table>
+    </div>
+
+    <!-- LAPORAN -->
+    <div id="laporanPage" class="hidden text-left">
+      <h2 class="font-bold mb-2">Bulanan</h2>
+      <div id="laporanBulanan"></div>
+      <h2 class="font-bold mt-4 mb-2">Tahunan</h2>
+      <div id="laporanTahunan"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let data = JSON.parse(localStorage.getItem('data_wifi')) || [];
+let riwayat = JSON.parse(localStorage.getItem('riwayat_wifi')) || [];
+let currentPage = 'menu';
+let editIndex = null;
+let openDetail = null;
+
+function showPage(p){
+  currentPage = p;
+
+  homePage.classList.add('hidden');
+  riwayatPage.classList.add('hidden');
+  laporanPage.classList.add('hidden');
+  inputPage.classList.add('hidden');
+
+  search.classList.add('hidden');
+  backBtn.classList.toggle('hidden', p==='menu');
+
+  if(p==='home'){
+    homePage.classList.remove('hidden');
+    search.classList.remove('hidden');
+  }
+  if(p==='riwayat') riwayatPage.classList.remove('hidden');
+  if(p==='laporan') laporanPage.classList.remove('hidden');
+  if(p==='input') inputPage.classList.remove('hidden');
+
+  render();
+}
+
+function simpan(){
+  localStorage.setItem('data_wifi', JSON.stringify(data));
+  localStorage.setItem('riwayat_wifi', JSON.stringify(riwayat));
+}
+
+function tambah(){
+  const n = nama.value.trim();
+  const a = alamat.value;
+  const p = paket.value;
+  const h = harga.value;
+  const w = wa.value;
+
+  if(!n||!a||!p||!h) return alert('Isi semua');
+
+  const exist = data.find(d => d.nama.toLowerCase() === n.toLowerCase());
+  if(exist && editIndex===null){
+    return alert('Nama sudah ada');
+  }
+
+  if(editIndex!==null){
+    data[editIndex] = {...data[editIndex], nama:n, alamat:a, paket:p, harga:h, wa:w};
+    editIndex=null;
+  } else {
+    data.push({nama:n, alamat:a, paket:p, harga:h, wa:w, status:'Belum'});
+  }
+
+  simpan();
+  render();
+
+  nama.value=''; alamat.value=''; paket.value=''; harga.value=''; wa.value='';
+}
+
+function editData(i){
+  let d = data[i];
+  showPage('input');
+  nama.value = d.nama;
+  alamat.value = d.alamat;
+  paket.value = d.paket;
+  harga.value = d.harga;
+  wa.value = d.wa || '';
+  editIndex = i;
+}
+
+function hapusData(i){
+  if(confirm('Hapus client ini?')){
+    data.splice(i,1);
+    simpan(); render();
+  }
+}
+
+function toggleDetail(i){
+  openDetail = openDetail===i ? null : i;
+  render();
+}
+
+function setStatus(i,s){
+  let d=new Date();
+  riwayat.push({nama:data[i].nama, bulan:d.toLocaleString('id-ID',{month:'long',year:'numeric'}), status:s});
+  data[i].status=s;
+  simpan(); render();
+}
+
+function importData(){ processText(bulkInput.value); }
+
+function uploadFile(){
+  let f=fileInput.files[0];
+  let r=new FileReader();
+  r.onload=e=>processText(e.target.result);
+  r.readAsText(f);
+}
+
+function processText(text){
+  text.split(/\n/).forEach(l=>{
+    let [n,a,p,h,w]=l.split(',');
+    if(n) data.push({nama:n, alamat:a, paket:p, harga:h, wa:w, status:'Belum'});
+  });
+  simpan(); render();
+}
+
+function render(){
+  if(currentPage==='home'){
+    tabel.innerHTML='';
+    data.filter(p=>p.nama.toLowerCase().includes(search.value.toLowerCase()))
+    .forEach((p,i)=>{
+      tabel.innerHTML+=`<tr class="border-b cursor-pointer" onclick="toggleDetail(${i})">
+        <td>${p.nama}</td>
+        <td class="${p.status==='Lunas'?'text-green-600':'text-red-600'}">${p.status}</td>
+        <td>⚙</td>
+      </tr>`;
+
+      if(openDetail===i){
+        tabel.innerHTML+=`<tr class="bg-gray-50">
+          <td colspan="3" class="p-2 text-xs">
+            <b>Alamat:</b> ${p.alamat}<br>
+            <b>Paket:</b> ${p.paket}<br>
+            <b>Harga:</b> Rp ${parseInt(p.harga).toLocaleString()}<br>
+            <b>WA:</b> ${p.wa || '-'}<br><br>
+            <button onclick="setStatus(${i},'Lunas')" class="bg-green-500 text-white px-2">Lunas</button>
+            <button onclick="setStatus(${i},'Belum')" class="bg-red-500 text-white px-2">Belum</button>
+            <button onclick="editData(${i})" class="bg-yellow-500 text-white px-2">Edit</button>
+            <button onclick="hapusData(${i})" class="bg-black text-white px-2">Hapus</button>
+          </td>
+        </tr>`;
+      }
+    });
+  }
+
+  if(currentPage==='riwayat'){
+    tabelRiwayat.innerHTML='';
+    riwayat.forEach(r=>{
+      tabelRiwayat.innerHTML+=`<tr><td>${r.nama}</td><td>${r.bulan}</td><td class="${r.status==='Lunas'?'text-green-600':'text-red-600'}">${r.status}</td></tr>`;
+    });
+  }
+
+  if(currentPage==='laporan'){
+    let b={}, t={};
+    riwayat.forEach(r=>{
+      if(!b[r.bulan]) b[r.bulan]=0;
+      if(r.status==='Lunas') b[r.bulan]++;
+
+      let th=r.bulan.split(' ')[1];
+      if(!t[th]) t[th]=0;
+      if(r.status==='Lunas') t[th]++;
+    });
+
+    laporanBulanan.innerHTML=Object.entries(b).map(([k,v])=>`<div class='bg-gray-100 p-2 rounded mb-1'>${k}: ${v} Lunas</div>`).join('');
+    laporanTahunan.innerHTML=Object.entries(t).map(([k,v])=>`<div class='bg-gray-100 p-2 rounded mb-1'>${k}: ${v} Lunas</div>`).join('');
+  }
+}
+</script>
+
+</body>
+</html>
